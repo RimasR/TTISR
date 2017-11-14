@@ -11,9 +11,9 @@ namespace HandGestureRecognition.SkinDetector
     {
         public override Image<Gray, byte> DetectSkin(Image<Bgr, byte> Img, IColor min, IColor max)
         {
-            Image<Ycc, Byte> currentYCrCbFrame = Img.Convert<Ycc, Byte>();
+            Image<Bgr, Byte> currentYCrCbFrame = Img.Convert<Bgr, Byte>();
             Image<Gray, byte> skin = new Image<Gray, byte>(Img.Width, Img.Height);
-            skin = currentYCrCbFrame.InRange((Ycc)min,(Ycc) max);
+            skin = currentYCrCbFrame.InRange((Bgr)min,(Bgr) max);
             //StructuringElementEx rect_12 = new StructuringElementEx(12, 12, 6, 6, Emgu.CV.CvEnum.CV_ELEMENT_SHAPE.CV_SHAPE_RECT);
             //CvInvoke.Erode(skin, skin, rect_12, 1);
             //StructuringElementEx rect_6 = new StructuringElementEx(6, 6, 3, 3, Emgu.CV.CvEnum.CV_ELEMENT_SHAPE.CV_SHAPE_RECT);

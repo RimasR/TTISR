@@ -13,7 +13,7 @@ namespace TTISR
     {
         //ball detection fields
         private VideoCapture _videoCapture = null;
-
+        private BallDetector detector = new BallDetector();
         private Mat _frame;
         private Mat _cannyFrame;
         private bool _captureInProgress;
@@ -30,6 +30,9 @@ namespace TTISR
         private Ycc YCrCb_min;
         private Ycc YCrCb_max;
 
+        private Bgr white_upper = new Bgr(255, 255, 255);
+        private Bgr white_lower = new Bgr(212, 243, 244);
+
         //private CvSeq<Point> hull;
         //private Seq<Point> filteredHull;
         //private Seq<MCvConvexityDefect> defects;
@@ -41,6 +44,7 @@ namespace TTISR
 
         public Form1()
         {
+
             InitializeComponent();
             hsv_min = new Hsv(0, 45, 0);
             hsv_max = new Hsv(20, 255, 255);
@@ -65,15 +69,20 @@ namespace TTISR
             {
                 _videoCapture.Retrieve(_frame, 0);
                 skinDetector = new YCrCbSkinDetector();
-                var copy = _frame.ToImage<Bgr, Byte>();
-                Image<Gray, Byte> skin = skinDetector.DetectSkin(copy, YCrCb_min, YCrCb_max);
-
+                Mat copy = new Mat();
+                /*Image<Bgr, Byte> blurred = null;
+                CvInvoke.GaussianBlur(copy, blurred, new Size(11, 11), 0);
+                Mat hsv = null;
+                CvInvoke.CvtColor(copy, hsv, ColorConversion.Bgr2Hsv, 0);
+                *///Image<Gray, Byte> skin = copy.InRange(white_lower, white_upper);
+                BallDetector.GetYellowMask(_frame, copy);
+                BallDetector.GetBallContours(copy, copy);
                 /*ExtractContourAndHull(skin); // SKIN - reikiamas img, apdorotas
                 DrawAndComputeFingersNum();*/
-                PerformHandDetection(_frame);
-                PerformShapeDetection(_frame);
+                //PerformHandDetection(_frame);
+                //PerformShapeDetection(_frame);
                 captureImageBox.Image = _frame;
-                videoProcessing.Image = _cannyFrame;
+                videoProcessing.Image = copy;
             }
         }
 
@@ -128,13 +137,20 @@ namespace TTISR
         private void PerformShapeDetection(Mat frame)
         {
             CvInvoke.CvtColor(frame, uImage, ColorConversion.Bgr2Gray);
-
+            uImage = frame;
             CvInvoke.PyrDown(uImage, pyrDown);
             CvInvoke.PyrUp(pyrDown, uImage);
             CircleF[] circles = CvInvoke.HoughCircles(uImage, HoughType.Gradient, 2.0, 50.0, cannyThreshold, circleAccumulatorThreshold, 5);
+            Point left = new Point();
+            Point right = new Point();
             foreach (CircleF circle in circles)
             {
+                var x1 = circle.Center.X - circle.Radius;
+                left = new Point((int)x1, (int)circle.Center.Y);
+                var x2 = circle.Center.X + circle.Radius;
+                right = new Point((int)x2, (int)circle.Center.Y);
                 CvInvoke.Circle(frame, Point.Round(circle.Center), (int)circle.Radius, new Bgr(Color.Brown).MCvScalar, 2);
+                CvInvoke.Line(frame, left, right, new Bgr(Color.YellowGreen).MCvScalar, 2);
             }
         }
 
