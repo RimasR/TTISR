@@ -16,14 +16,38 @@ namespace TTISR
             queue = new Queue();
         }
 
-        public VectorOfVectorOfPoint GetBallContours(Image<Bgr, byte> image)
+        public Mat GetBallContours(Mat image)
         {
-            Image<Gray, byte> imgout = image.Convert<Gray, byte>().Not().ThresholdBinary(new Gray(50), new Gray(255));
-            VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
-            Mat hier = new Mat();
-            CvInvoke.FindContours(imgout, contours, hier, RetrType.External, ChainApproxMethod.ChainApproxSimple);
+            var copy = new Mat();
+            CvInvoke.GaussianBlur(image, copy, new Size(5, 5), 1.5, 1.5);
+            var mask = new Mat();
+            bool useUMat;
+            using (InputOutputArray ia = mask.GetInputOutputArray())
+                useUMat = ia.IsUMat;
 
-            return contours;
+            using (IImage hsv = useUMat ? (IImage)new UMat() : (IImage)new Mat())
+            using (IImage s = useUMat ? (IImage)new UMat() : (IImage)new Mat())
+            {
+                CvInvoke.CvtColor(copy, hsv, ColorConversion.Bgr2Hsv);
+                CvInvoke.ExtractChannel(hsv, mask, 0);
+                CvInvoke.ExtractChannel(hsv, s, 1);
+
+                using (ScalarArray lower = new ScalarArray(80))
+                using (ScalarArray upper = new ScalarArray(120))
+                    CvInvoke.InRange(mask, lower, upper, mask);
+                //CvInvoke.BitwiseNot(mask, mask);
+
+                //s is the mask for saturation of at least 10, this is mainly used to filter out white pixels
+                CvInvoke.Threshold(s, s, 10, 255, ThresholdType.Binary);
+                CvInvoke.BitwiseAnd(mask, s, mask, null);
+
+            }
+
+            //Use Dilate followed by Erode to eliminate small gaps in some contour.
+            CvInvoke.Dilate(mask, mask, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+            CvInvoke.Erode(mask, mask, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+            
+            return mask;
         }
 
 

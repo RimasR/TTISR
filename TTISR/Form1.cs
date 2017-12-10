@@ -13,67 +13,34 @@ namespace TTISR
     {
         private VideoCapture _videoCapture = null;
         private BallDetector detector = new BallDetector();
-        private Mat _frame;
-        private Mat _ballContourFrame;
-        private bool _captureInProgress;
+        double dp = 3;
+        double minDist = 160.0;
+        double param1 = 50.0;
+        double param2 = 120.0;
+        double minRadius = 0;
+        double maxRadius = 0;
 
         public Form1()
         {
             InitializeComponent();
-            /*CvInvoke.UseOpenCL = false;
-            try
+            trackBar1.Value = (int)dp;
+            trackBar2.Value = (int)minDist;
+            trackBar3.Value = (int)param1;
+            trackBar4.Value = (int)param2;
+            trackBar5.Value = (int)minRadius;
+            trackBar6.Value = (int)maxRadius;
+        }
+
+        private void DetectIllegalServing(Mat image)
+        {
+            Mat contours = detector.GetBallContours(image);
+            CircleF[] circles = CvInvoke.HoughCircles(contours, HoughType.Gradient, dp, minDist, param1, param2);
+            foreach (var circle in circles)
             {
-                _videoCapture = new VideoCapture();
-                _videoCapture.ImageGrabbed += ProcessFrame;
+                CvInvoke.Circle(contours, Point.Round(circle.Center), (int)circle.Radius, new Bgr(Color.Gray).MCvScalar, 1);
             }
-            catch (NullReferenceException excpt)
-            {
-                MessageBox.Show(excpt.Message);
-            };
-            _frame = new Mat();
-            _ballContourFrame = new Mat();*/
-        }
-
-        private void ProcessFrame(object sender, EventArgs arg)
-        {
-            if (_videoCapture != null && _videoCapture.Ptr != IntPtr.Zero)
-            {
-                _videoCapture.Retrieve(_frame, 0);
-                _ballContourFrame = _frame;
-
-                DetectIllegalServing(_ballContourFrame.ToImage<Bgr, byte>());
-                Mat m = new Mat();
-                
-
-                /*captureImageBox.Image = _frame;
-                ballProcessing.Image = _ballContourFrame;*/
-                
-            }
-        }
-
-        private void captureButton_Click(object sender, EventArgs e)
-        {
-            /*if (_videoCapture != null)
-            {
-                if (_captureInProgress)
-                {
-                    captureButton.Text = "Start";
-                    _videoCapture.Stop();
-                }
-                else
-                {
-                    captureButton.Text = "Stop";
-                    _videoCapture.Start();
-                }
-
-                _captureInProgress = !_captureInProgress;
-            }*/
-        }
-
-        private void DetectIllegalServing(Image<Bgr, byte> image)
-        {
-            detector.GetBallContours(image);
-            
+            pictureBox2.Image = contours.Bitmap;
+            label7.BeginInvoke(new MethodInvoker(delegate { label7.Text = $"Circle count: {circles.Length}"; }));
         }
 
         private void startToolStripMenuItem_Click(object sender, EventArgs e)
@@ -94,7 +61,7 @@ namespace TTISR
                 Mat m = new Mat();
                 _videoCapture.Retrieve(m);
                 pictureBox1.Image = m.ToImage<Bgr, byte>().Bitmap;
-                DetectIllegalServing(m.ToImage<Bgr, byte>());
+                DetectIllegalServing(m);
             }
             catch (Exception)
             {
@@ -141,8 +108,8 @@ namespace TTISR
                 Mat m = new Mat();
                 _videoCapture.Retrieve(m);
                 pictureBox1.Image = m.ToImage<Bgr, byte>().Bitmap;
-                DetectIllegalServing(m.ToImage<Bgr, byte>());
-                Thread.Sleep((int)_videoCapture.GetCaptureProperty(CapProp.Fps)*2);
+                DetectIllegalServing(m);
+                Thread.Sleep((int)_videoCapture.GetCaptureProperty(CapProp.Fps));
             }
             catch (Exception)
             {
@@ -164,6 +131,42 @@ namespace TTISR
             {
                 _videoCapture.Pause();
             }
+        }
+
+        private void trackBar1_ValueChanged(object sender, EventArgs e)
+        {
+            dp = trackBar1.Value;
+            label8.Text = dp.ToString();
+        }
+
+        private void trackBar2_ValueChanged(object sender, EventArgs e)
+        {
+            minDist = trackBar2.Value;
+            label9.Text = minDist.ToString();
+        }
+
+        private void trackBar3_ValueChanged(object sender, EventArgs e)
+        {
+            param1 = trackBar3.Value;
+            label10.Text = param1.ToString();
+        }
+
+        private void trackBar4_ValueChanged(object sender, EventArgs e)
+        {
+            param2 = trackBar4.Value;
+            label11.Text = param2.ToString();
+        }
+
+        private void trackBar5_ValueChanged(object sender, EventArgs e)
+        {
+            minRadius = trackBar5.Value;
+            label12.Text = minRadius.ToString();
+        }
+
+        private void trackBar6_ValueChanged(object sender, EventArgs e)
+        {
+            maxRadius = trackBar6.Value;
+            label13.Text = maxRadius.ToString();
         }
     }
 }
