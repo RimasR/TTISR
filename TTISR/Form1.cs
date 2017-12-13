@@ -19,6 +19,9 @@ namespace TTISR
         double param2 = 120.0;
         double minRadius = 0;
         double maxRadius = 0;
+        double min = 9;
+        double max = 14;
+        double sat = 10;
 
         public Form1()
         {
@@ -29,18 +32,95 @@ namespace TTISR
             trackBar4.Value = (int)param2;
             trackBar5.Value = (int)minRadius;
             trackBar6.Value = (int)maxRadius;
+            trackBar7.Value = (int)min;
+            trackBar8.Value = (int)max;
+            trackBar9.Value = (int)sat;
         }
 
         private void DetectIllegalServing(Mat image)
         {
-            Mat contours = detector.GetBallContours(image);
+            Mat final = image.Clone();
+            Mat contours = GetBallContours(image);
+
+            Mat handContours = GetHandContours(image);
             CircleF[] circles = CvInvoke.HoughCircles(contours, HoughType.Gradient, dp, minDist, param1, param2);
             foreach (var circle in circles)
             {
-                CvInvoke.Circle(contours, Point.Round(circle.Center), (int)circle.Radius, new Bgr(Color.Gray).MCvScalar, 1);
+                CvInvoke.Circle(final, Point.Round(circle.Center), (int)circle.Radius, new Bgr(Color.Red).MCvScalar, 3);
             }
-            pictureBox2.Image = contours.Bitmap;
             label7.BeginInvoke(new MethodInvoker(delegate { label7.Text = $"Circle count: {circles.Length}"; }));
+
+            pictureBox2.Image = contours.Bitmap;
+            pictureBox3.Image = handContours.Bitmap;
+            pictureBox4.Image = final.Bitmap;
+        }
+
+        public Mat GetBallContours(Mat image)
+        {
+            var copy = new Mat();
+            CvInvoke.GaussianBlur(image, copy, new Size(5, 5), 1.5, 1.5);
+            var mask = new Mat();
+            bool useUMat;
+            using (InputOutputArray ia = mask.GetInputOutputArray())
+                useUMat = ia.IsUMat;
+
+            using (IImage hsv = useUMat ? (IImage)new UMat() : (IImage)new Mat())
+            using (IImage s = useUMat ? (IImage)new UMat() : (IImage)new Mat())
+            {
+                CvInvoke.CvtColor(copy, hsv, ColorConversion.Bgr2Hsv);
+                CvInvoke.ExtractChannel(hsv, mask, 0);
+                CvInvoke.ExtractChannel(hsv, s, 1);
+
+                using (ScalarArray lower = new ScalarArray(90))
+                using (ScalarArray upper = new ScalarArray(120))
+                    CvInvoke.InRange(mask, lower, upper, mask);
+                //CvInvoke.BitwiseNot(mask, mask);
+
+                //s is the mask for saturation of at least 10, this is mainly used to filter out white pixels
+                CvInvoke.Threshold(s, s, 10, 255, ThresholdType.Binary);
+                CvInvoke.BitwiseAnd(mask, s, mask, null);
+
+            }
+
+            //Use Dilate followed by Erode to eliminate small gaps in some contour.
+            CvInvoke.Dilate(mask, mask, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+            CvInvoke.Erode(mask, mask, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+
+            return mask;
+        }
+
+        public Mat GetHandContours(Mat image)
+        {
+            var copy = new Mat();
+            CvInvoke.GaussianBlur(image, copy, new Size(5, 5), 1.5, 1.5);
+            var mask = new Mat();
+            bool useUMat;
+            using (InputOutputArray ia = mask.GetInputOutputArray())
+                useUMat = ia.IsUMat;
+
+            using (IImage hsv = useUMat ? (IImage)new UMat() : (IImage)new Mat())
+            using (IImage s = useUMat ? (IImage)new UMat() : (IImage)new Mat())
+            {
+                CvInvoke.CvtColor(copy, hsv, ColorConversion.Bgr2Hsv);
+                CvInvoke.ExtractChannel(hsv, mask, 0);
+                CvInvoke.ExtractChannel(hsv, s, 1);
+
+                using (ScalarArray lower = new ScalarArray(9))
+                using (ScalarArray upper = new ScalarArray(14))
+                    CvInvoke.InRange(mask, lower, upper, mask);
+                //CvInvoke.BitwiseNot(mask, mask);
+
+                //s is the mask for saturation of at least 10, this is mainly used to filter out white pixels
+                CvInvoke.Threshold(s, s, 10, 255, ThresholdType.Binary);
+                CvInvoke.BitwiseAnd(mask, s, mask, null);
+
+            }
+
+            //Use Dilate followed by Erode to eliminate small gaps in some contour.
+            CvInvoke.Dilate(mask, mask, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+            CvInvoke.Erode(mask, mask, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
+
+            return mask;
         }
 
         private void startToolStripMenuItem_Click(object sender, EventArgs e)
@@ -167,6 +247,24 @@ namespace TTISR
         {
             maxRadius = trackBar6.Value;
             label13.Text = maxRadius.ToString();
+        }
+
+        private void trackBar7_ValueChanged(object sender, EventArgs e)
+        {
+            min = trackBar7.Value;
+            label17.Text = min.ToString();
+        }
+
+        private void trackBar8_ValueChanged(object sender, EventArgs e)
+        {
+            max = trackBar8.Value;
+            label18.Text = max.ToString();
+        }
+
+        private void trackBar9_ValueChanged(object sender, EventArgs e)
+        {
+            sat = trackBar9.Value;
+            label19.Text = sat.ToString();
         }
     }
 }

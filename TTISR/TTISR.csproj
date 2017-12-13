@@ -114,6 +114,7 @@
     <Content Include="2017-10-26_22-17-01.mp4" />
     <Content Include="2017-10-26_23-53-46.mp4" />
     <Content Include="2017-11-13_22-53-57.mp4" />
+    <Content Include="2017-12-14_00-01-42.mp4" />
     <Content Include="concrt140.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
