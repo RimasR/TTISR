@@ -14,14 +14,17 @@ namespace TTISR
         private VideoCapture _videoCapture = null;
         private BallDetector detector = new BallDetector();
         double dp = 3;
-        double minDist = 160.0;
-        double param1 = 50.0;
-        double param2 = 120.0;
+        double minDist = 200.0;
+        double param1 = 1.0;
+        double param2 = 30.0;
         double minRadius = 0;
         double maxRadius = 0;
-        double min = 9;
-        double max = 14;
+        double min = 90;
+        double max = 120;
         double sat = 10;
+        double min1 = 9;
+        double max1 = 14;
+        double sat1 = 10;
 
         public Form1()
         {
@@ -35,6 +38,9 @@ namespace TTISR
             trackBar7.Value = (int)min;
             trackBar8.Value = (int)max;
             trackBar9.Value = (int)sat;
+            trackBar10.Value = (int)min1;
+            trackBar11.Value = (int)max1;
+            trackBar12.Value = (int)sat1;
         }
 
         private void DetectIllegalServing(Mat image)
@@ -43,15 +49,18 @@ namespace TTISR
             Mat contours = GetBallContours(image);
 
             Mat handContours = GetHandContours(image);
+            Image<Bgr, byte> hand = GetPalm(handContours);
             CircleF[] circles = CvInvoke.HoughCircles(contours, HoughType.Gradient, dp, minDist, param1, param2);
-            foreach (var circle in circles)
-            {
+            if(circles.Length > 0)
+                foreach (var circle in circles)
+                {
                 CvInvoke.Circle(final, Point.Round(circle.Center), (int)circle.Radius, new Bgr(Color.Red).MCvScalar, 3);
-            }
+                }
+
             label7.BeginInvoke(new MethodInvoker(delegate { label7.Text = $"Circle count: {circles.Length}"; }));
 
             pictureBox2.Image = contours.Bitmap;
-            pictureBox3.Image = handContours.Bitmap;
+            pictureBox3.Image = hand.Bitmap;
             pictureBox4.Image = final.Bitmap;
         }
 
@@ -71,13 +80,13 @@ namespace TTISR
                 CvInvoke.ExtractChannel(hsv, mask, 0);
                 CvInvoke.ExtractChannel(hsv, s, 1);
 
-                using (ScalarArray lower = new ScalarArray(90))
-                using (ScalarArray upper = new ScalarArray(120))
+                using (ScalarArray lower = new ScalarArray(min))
+                using (ScalarArray upper = new ScalarArray(max))
                     CvInvoke.InRange(mask, lower, upper, mask);
                 //CvInvoke.BitwiseNot(mask, mask);
 
                 //s is the mask for saturation of at least 10, this is mainly used to filter out white pixels
-                CvInvoke.Threshold(s, s, 10, 255, ThresholdType.Binary);
+                CvInvoke.Threshold(s, s, sat, 255, ThresholdType.Binary);
                 CvInvoke.BitwiseAnd(mask, s, mask, null);
 
             }
@@ -105,13 +114,13 @@ namespace TTISR
                 CvInvoke.ExtractChannel(hsv, mask, 0);
                 CvInvoke.ExtractChannel(hsv, s, 1);
 
-                using (ScalarArray lower = new ScalarArray(9))
-                using (ScalarArray upper = new ScalarArray(14))
+                using (ScalarArray lower = new ScalarArray(min1))
+                using (ScalarArray upper = new ScalarArray(max1))
                     CvInvoke.InRange(mask, lower, upper, mask);
                 //CvInvoke.BitwiseNot(mask, mask);
 
                 //s is the mask for saturation of at least 10, this is mainly used to filter out white pixels
-                CvInvoke.Threshold(s, s, 10, 255, ThresholdType.Binary);
+                CvInvoke.Threshold(s, s, sat1, 255, ThresholdType.Binary);
                 CvInvoke.BitwiseAnd(mask, s, mask, null);
 
             }
@@ -121,6 +130,60 @@ namespace TTISR
             CvInvoke.Erode(mask, mask, null, new Point(-1, -1), 1, BorderType.Constant, CvInvoke.MorphologyDefaultBorderValue);
 
             return mask;
+        }
+
+        public Image<Bgr, byte> GetPalm(Mat mask)
+        {
+            int width = mask.Width;
+            int height = mask.Height;
+            var temp = new Mat();
+            var result = mask.ToImage<Bgr, byte>();
+            VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint();
+            VectorOfPoint biggestContour = new VectorOfPoint();
+            CvInvoke.FindContours(mask, contours, null, RetrType.List, ChainApproxMethod.ChainApproxSimple);
+            if (contours.Size > 0)
+            {
+                biggestContour = contours[0];
+                for (int i = 0; i < contours.Size; i++)
+                {
+                    if (contours[i].Size > biggestContour.Size)
+                    {
+                        biggestContour = contours[i];
+                    }
+                }
+            }
+            if(biggestContour.Size != 0)
+            {
+                //Gaunam rankos konturus
+                CvInvoke.ApproxPolyDP(biggestContour, biggestContour, 0.00000001, false);
+                var points = biggestContour.ToArray();
+                VectorOfInt hull = new VectorOfInt();
+                //find the palm hand area using convexitydefect
+                CvInvoke.ConvexHull(biggestContour, hull, true);
+                var box = CvInvoke.MinAreaRect(biggestContour);
+                Mat defects = new Mat();
+                CvInvoke.ConvexityDefects(biggestContour, hull, defects);
+
+                if (!defects.IsEmpty)
+                {
+                    //Data from Mat are not directly readable so we convert it to Matrix<>
+                    Matrix<int> m = new Matrix<int>(defects.Rows, defects.Cols, defects.NumberOfChannels);
+                    defects.CopyTo(m);
+
+                    for (int i = 0; i < m.Rows; i++)
+                    {
+                        int startIdx = m.Data[i, 0];
+                        int endIdx = m.Data[i, 1];
+                        Point startPoint = points[startIdx];
+                        Point endPoint = points[endIdx];
+                        //draw  a line connecting the convexity defect start point and end point in thin red line
+                        CvInvoke.Line(result, startPoint, endPoint, new MCvScalar(0, 0, 255));
+                    }
+                }
+
+            }
+
+            return result;
         }
 
         private void startToolStripMenuItem_Click(object sender, EventArgs e)
@@ -265,6 +328,29 @@ namespace TTISR
         {
             sat = trackBar9.Value;
             label19.Text = sat.ToString();
+        }
+
+        private void label15_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void trackBar10_ValueChanged(object sender, EventArgs e)
+        {
+            min1 = trackBar10.Value;
+            label24.Text = min1.ToString();
+        }
+
+        private void trackBar11_ValueChanged(object sender, EventArgs e)
+        {
+            max1 = trackBar11.Value;
+            label25.Text = max1.ToString();
+        }
+
+        private void trackBar12_ValueChanged(object sender, EventArgs e)
+        {
+            sat1 = trackBar12.Value;
+            label26.Text = sat1.ToString();
         }
     }
 }
